@@ -1,0 +1,75 @@
+@isTest
+public class RegistrationTriggerCheck {
+    
+    @testSetup
+    static void setupTestData() {
+        // Create test event with capacity
+        Event__c event1 = new Event__c(Name = 'Test Event 1', Capacity__c = 50000000);
+        insert event1;
+    }
+
+    @isTest
+    static void testAfterInsertTrigger() {
+        // Get the test event
+        Event__c event = [SELECT Id, Capacity__c FROM Event__c WHERE Name = 'Test Event 1' LIMIT 1];
+        
+        // Create and insert a registration
+        Registration__c reg = new Registration__c(Participant_Name__c = 'John Doe', Email__c = 'john.doe@example.com', Events__c = event.Id);
+        
+        Test.startTest();
+        insert reg;
+        Test.stopTest();
+
+        // Verify that capacity has been reduced
+        event = [SELECT Capacity__c FROM Event__c WHERE Id = :event.Id];
+        System.assertEquals(9, event.Capacity__c, 'Capacity should be reduced by 1');
+    }
+
+    @isTest
+    static void testBeforeDeleteTrigger() {
+        // Get the test event
+        Event__c event = [SELECT Id, Capacity__c FROM Event__c WHERE Name = 'Test Event 1' LIMIT 1];
+
+        // Create and insert a registration
+        Registration__c reg = new Registration__c(Participant_Name__c = 'John Doe', Email__c = 'john.doe@example.com', Events__c = event.Id);
+        insert reg;
+
+        // Delete the registration
+        Test.startTest();
+        delete reg;
+        Test.stopTest();
+
+        // Verify that capacity has been increased
+        event = [SELECT Capacity__c FROM Event__c WHERE Id = :event.Id];
+        System.assertEquals(10, event.Capacity__c, 'Capacity should be increased by 1 after deletion');
+    }
+
+    @isTest
+    static void testBulkInsertDeleteTrigger() {
+        // Get the test event
+        Event__c event = [SELECT Id, Capacity__c FROM Event__c WHERE Name = 'Test Event 1' LIMIT 1];
+
+        List<Registration__c> regs = new List<Registration__c>();
+        for (Integer i = 0; i < 5; i++) {
+            regs.add(new Registration__c(Participant_Name__c = 'Participant ' + i, Email__c = 'test' + i + '@example.com', Events__c = event.Id));
+        }
+        
+        // Bulk insert registrations
+        Test.startTest();
+        insert regs;
+        Test.stopTest();
+
+        // Verify that capacity has been reduced by 5
+        event = [SELECT Capacity__c FROM Event__c WHERE Id = :event.Id];
+        System.assertEquals(5, event.Capacity__c, 'Capacity should be reduced by 5');
+
+        // Bulk delete registrations
+        Test.startTest();
+        delete regs;
+        Test.stopTest();
+
+        // Verify that capacity has been increased by 5
+        event = [SELECT Capacity__c FROM Event__c WHERE Id = :event.Id];
+        System.assertEquals(10, event.Capacity__c, 'Capacity should be back to the original value');
+    }
+}
