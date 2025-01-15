@@ -1,0 +1,93 @@
+@isTest
+public class EventManagementCheck {
+    
+    @testSetup
+    static void setupTestData() {
+        // Create test event with capacity
+        Event__c event1 = new Event__c(Name = 'Test Event 1', Capacity__c = 10);
+        insert event1;
+
+        // Create another event for bulk testing
+        Event__c event2 = new Event__c(Name = 'Test Event 2', Capacity__c = 5);
+        insert event2;
+    }
+
+    @isTest
+    static void testRegisterParticipantSuccess() {
+        // Get the test event
+        Event__c event = [SELECT Id, Capacity__c FROM Event__c WHERE Name = 'Test Event 1' LIMIT 1];
+        
+        // Create a registration
+        Registration__c reg = new Registration__c(Participant_Name__c = 'John Doe', Email__c = 'john.doe@example.com', Events__c = event.Id);
+        
+        // Call the registerParticipant method
+        Test.startTest();
+        ManageEventRegistrations.registerParticipant(reg, event);
+        Test.stopTest();
+
+        // Verify that capacity has been reduced
+        event = [SELECT Capacity__c FROM Event__c WHERE Id = :event.Id];
+        System.assertEquals(9, event.Capacity__c, 'Capacity should be reduced by 1');
+    }
+
+    @isTest
+    static void testRegisterParticipantFailure() {
+        // Create an event with 0 capacity
+        Event__c fullEvent = new Event__c(Name = 'Full Event', Capacity__c = 0);
+        insert fullEvent;
+        
+        // Create a registration
+        Registration__c reg = new Registration__c(Participant_Name__c = 'Jane Doe', Email__c = 'jane.doe@example.com', Events__c = fullEvent.Id);
+
+        // Expect an exception due to full capacity
+        Test.startTest();
+        try {
+            ManageEventRegistrations.registerParticipant(reg, fullEvent);
+            System.assert(false, 'Expected EventRegistrationException');
+        } catch (ManageEventRegistrations.EventRegistrationException e) {
+            System.assertEquals('Event has reached maximum capacity.', e.getMessage());
+        }
+        Test.stopTest();
+    }
+
+    @isTest
+    static void testCancelRegistration() {
+        // Get the test event
+        Event__c event = [SELECT Id, Capacity__c FROM Event__c WHERE Name = 'Test Event 1' LIMIT 1];
+
+        // Create and insert a registration
+        Registration__c reg = new Registration__c(Participant_Name__c = 'John Doe', Email__c = 'john.doe@example.com', Events__c = event.Id);
+        insert reg;
+        
+        // Call the cancelRegistration method
+        Test.startTest();
+        ManageEventRegistrations.cancelRegistration(reg);
+        Test.stopTest();
+
+        // Verify that capacity has been increased
+        event = [SELECT Capacity__c FROM Event__c WHERE Id = :event.Id];
+        System.assertEquals(11, event.Capacity__c, 'Capacity should be increased by 1 after cancellation');
+    }
+
+    @isTest
+    static void testBulkRegistrations() {
+        // Get the test event
+        Event__c event = [SELECT Id, Capacity__c FROM Event__c WHERE Name = 'Test Event 2' LIMIT 1];
+
+        List<Registration__c> regs = new List<Registration__c>();
+        for (Integer i = 0; i < 5; i++) {
+            regs.add(new Registration__c(Participant_Name__c = 'Participant ' + i, Email__c = 'test' + i + '@example.com', Events__c = event.Id));
+        }
+        
+        // Call the registerParticipant method for each registration
+        Test.startTest();
+        for (Registration__c reg : regs) {
+            ManageEventRegistrations.registerParticipant(reg, event);
+        }
+        Test.stopTest();
+
+        // Verify that capacity has been reduced to 0
+        event = [SELECT Capacity__c FROM Event__c WHERE Id = :event.Id];
+        System.assertEquals(0, event.Capacity__c, 'Event capacity should be reduced to 0');
+    }
+}
