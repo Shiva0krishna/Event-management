@@ -1,0 +1,29 @@
+public class ManageEventRegistrations {
+    
+     public class EventRegistrationException extends Exception {}
+
+     public static void registerParticipant(Registration__c reg, Event__c event) {
+         if (event.Capacity__c <= 0) {
+            throw new EventRegistrationException('Event has reached maximum capacity.');
+        }
+
+          event.Capacity__c = event.Capacity__c - 1;
+        update event;
+
+         sendRegistrationConfirmation(reg, event);
+    }
+
+    public static void cancelRegistration(Registration__c reg) {
+        Event__c event = [SELECT Id, Capacity__c FROM Event__c WHERE Id = :reg.Events__c LIMIT 1];
+        event.Capacity__c = event.Capacity__c + 1;
+        update event;
+    }
+
+    public static void sendRegistrationConfirmation(Registration__c reg, Event__c event) {
+        Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+        mail.setToAddresses(new String[] { reg.Email__c});
+        mail.setTemplateId('00XNS000002919V2AQ');
+        mail.setWhatId(event.Id);
+        Messaging.sendEmail(new Messaging.SingleEmailMessage[] { mail });
+    }
+}
