@@ -1,0 +1,23 @@
+trigger RegistrationTrigger on Registration__c (after insert, before delete) {
+     if (Trigger.isAfter && Trigger.isInsert) {
+        for (Registration__c reg : Trigger.new) {
+            try {
+                 Event__c event = [SELECT Id, Capacity__c FROM Event__c WHERE Id = :reg.Events__c LIMIT 1];
+                 ManageEventRegistrations.registerParticipant(reg, event);
+            } catch (Exception e) {
+                System.debug('Error registering participant: ' + e.getMessage());
+            }
+        }
+    }
+
+     if (Trigger.isBefore && Trigger.isDelete) {
+        for (Registration__c reg : Trigger.old) {
+            try {
+                 Event__c event = [SELECT Id, Capacity__c FROM Event__c WHERE Id = :reg.Events__c LIMIT 1];
+                 ManageEventRegistrations.cancelRegistration(reg);
+            } catch (Exception e) {
+                System.debug('Error cancelling registration: ' + e.getMessage());
+            }
+        }
+    }
+}
